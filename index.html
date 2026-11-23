@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Optik Okuyucu (canlı kamera)</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef1f5;--card:#fff;--ink:#0f1b33;--mute:#5b6678;--line:#d5dbe5;--pri:#14306b;--onpri:#fff;--ok:#16794a;--okbg:#dcf2e5;--bad:#b4281d;--badbg:#fbe0dc;--warn:#8a5a00;--warnbg:#fff0c9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1320;--card:#161f31;--ink:#e8edf6;--mute:#9aa6bb;--line:#2a364d;--pri:#7ea2ff;--onpri:#0d1320;--ok:#5fd596;--okbg:#12342380;--bad:#ff8a7d;--badbg:#3d1a1780;--warn:#f2c35b;--warnbg:#3b2d0b}}
+:root[data-theme="dark"]{--bg:#0d1320;--card:#161f31;--ink:#e8edf6;--mute:#9aa6bb;--line:#2a364d;--pri:#7ea2ff;--onpri:#0d1320;--ok:#5fd596;--okbg:#12342380;--bad:#ff8a7d;--badbg:#3d1a1780;--warn:#f2c35b;--warnbg:#3b2d0b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{max-width:560px;margin:0 auto;padding:14px 14px 60px}
+h1{font-size:1.5rem;margin:6px 0 2px;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:22px 0 8px}
+p.m,.m{color:var(--mute);font-size:.9rem;margin:2px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{justify-content:space-between}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 14px;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+button.p,.btn.p{background:var(--pri);color:var(--onpri);border-color:var(--pri);font-weight:600}
+button.d{color:var(--bad)}
+button:focus-visible,input:focus-visible,.btn:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.big{width:100%;min-height:56px;font-size:1.1rem}
+input[type=text],input[type=number]{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-height:44px}
+label{display:block;font-size:.85rem;color:var(--mute);margin:8px 0 3px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.q{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line)}
+.q b{width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.q button{min-width:44px;padding:6px 0;min-height:40px}
+.q button.on{background:var(--pri);color:var(--onpri);border-color:var(--pri);font-weight:700}
+.q button.on.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.q button.on.no{background:var(--bad);border-color:var(--bad);color:#fff}
+.q.w{background:var(--warnbg)}
+.q.kq{display:grid;grid-template-columns:28px repeat(4,minmax(0,1fr)) 64px;gap:6px;align-items:center}
+.q.kq button{min-width:0;padding:6px 0;width:100%}
+.q small{color:var(--warn);margin-left:auto}
+canvas{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);touch-action:manipulation;display:block}
+.score{font-size:2.6rem;font-weight:800;letter-spacing:-.02em;line-height:1}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.85rem;font-weight:600;margin-right:6px}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.mu{background:var(--line);color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:600}
+td.r,th.r{text-align:right}
+textarea{width:100%;min-height:110px;font:12px monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px}
+input[type=range]{width:100%}
+.steps{counter-reset:s;padding-left:0;list-style:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+var K='optik-okuyucu-v1',S={courses:[]},view={n:'list'},sc=null;
+try{var raw=localStorage.getItem(K);if(raw)S=JSON.parse(raw)}catch(e){}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+function $(s){return document.querySelector(s)}
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function go(v){view=v;render();window.scrollTo(0,0)}
+function course(){return S.courses.find(function(c){return c.id===view.id})}
+var L='ABCD';
+
+/* ---------- puan ---------- */
+function keyOf(c,g){if(g==='B'){c.keyB=c.keyB||[];return c.keyB}return c.key}
+function calc(c,ans,g){var key=keyOf(c,g),d=0,y=0,b=0;
+ for(var i=0;i<c.n;i++){var k=key[i],a=ans[i];
+  if(k==='X'){d++;continue}
+  if(!a){b++}else if(a===k){d++}else{y++}}
+ var net=d-(c.k>0?y/c.k:0),s=Math.max(0,net*c.pts);
+ return{d:d,y:y,b:b,s:Math.round(s*100)/100}}
+
+/* ---------- ekranlar ---------- */
+function render(){
+ var a=$('#app');
+ if(view.n==='list')a.innerHTML=vList();
+ else if(view.n==='course')a.innerHTML=vCourse();
+ else if(view.n==='scan')vScan(a);
+}
+function vList(){
+ var h='<h1>Optik Okuyucu</h1><p class="m">Ders oluştur, cevap anahtarını gir, kâğıdı kamerayla tara.</p>';
+ h+='<div class="row" style="margin:14px 0"><button class="p big" onclick="newCourse()">Yeni ders oluştur</button></div>';
+ if(!S.courses.length)h+='<div class="card m">Henüz ders yok. Önce bir ders oluştur; sonra soru sayısını, soru başı puanı ve cevap anahtarını girersin.</div>';
+ S.courses.forEach(function(c){
+  h+='<div class="card" style="cursor:pointer" onclick="go({n:\'course\',id:\''+c.id+'\'})"><b>'+esc(c.name)+'</b><div class="m">'+c.n+' soru × '+c.pts+' puan · '+c.res.length+' kâğıt okundu</div></div>'});
+ h+='<div class="card"><b>Yedek</b><p class="m">Dersleri başka bir adrese taşımak için: eski yerde "Verileri göster"e bas, metni kopyala. Yeni yerde yapıştırıp "İçe aktar"a bas.</p><textarea id="bk" placeholder="Veriyi buraya yapıştır"></textarea><div class="row" style="margin-top:8px"><button onclick="expData()">Verileri göster</button><button class="p" onclick="impData()">İçe aktar</button></div></div>';
+ return h}
+function expData(){$('#bk').value=JSON.stringify(S);$('#bk').select()}
+function impData(){try{var o=JSON.parse($('#bk').value);if(o&&o.courses){S=o;save();render()}else alert('Geçersiz veri')}catch(e){alert('Geçersiz veri')}}
+function newCourse(){
+ var c={id:'c'+Date.now(),name:'Yeni ders',n:25,pts:4,k:0,key:[],res:[]};
+ S.courses.unshift(c);save();go({n:'course',id:c.id})}
+function vCourse(){
+ var c=course();if(!c)return vList();
+ var h='<div class="row sp"><button onclick="go({n:\'list\'})">‹ Dersler</button><button class="d" onclick="delCourse()">Dersi sil</button></div>';
+ h+='<h1>'+esc(c.name)+'</h1>';
+ h+='<div class="card"><label for="nm">Ders adı</label><input type="text" id="nm" value="'+esc(c.name)+'" oninput="setF(\'name\',this.value)">';
+ h+='<div class="g3"><div><label for="n">Soru sayısı</label><input type="number" id="n" min="1" max="25" value="'+c.n+'" oninput="setF(\'n\',this.value)"></div>';
+ h+='<div><label for="pt">Soru başı puan</label><input type="number" id="pt" min="0" step="0.5" value="'+c.pts+'" oninput="setF(\'pts\',this.value)"></div>';
+ h+='<div><label for="kk">Kaç yanlış 1 doğruyu götürür</label><input type="number" id="kk" min="0" value="'+c.k+'" oninput="setF(\'k\',this.value)"></div></div>';
+ h+='<p class="m">Yanlış kesintisi yoksa 0 bırak.</p></div>';
+ h+='<button class="p big" onclick="go({n:\'scan\',id:\''+c.id+'\',s:0})">Kâğıt tara</button>';
+ var kg=view.kg||'A';h+='<h2>Cevap anahtarı</h2><div class="row" style="margin-bottom:8px"><button class="'+(kg==='A'?'p':'')+'" style="flex:1" onclick="setKg(\'A\')">A grubu</button><button class="'+(kg==='B'?'p':'')+'" style="flex:1" onclick="setKg(\'B\')">B grubu</button></div><div class="card"><label for="pk">Hızlı giriş: harfleri art arda yaz (iptal soru için X)</label><div class="row"><input type="text" id="pk" placeholder="BADDAAACBC..." style="flex:1" value="'+esc(keyOf(c,kg).map(function(x){return x||'-'}).join(''))+'"><button onclick="pasteKey()">Uygula</button></div></div>';
+ h+='<div class="card" id="keygrid">'+keyGrid(c)+'</div>';
+ h+='<h2>Okunan kâğıtlar ('+c.res.length+')</h2>';
+ if(c.res.length){
+  h+='<div class="card"><table><tr><th>Öğrenci no</th><th>Grup</th><th class="r">D</th><th class="r">Y</th><th class="r">B</th><th class="r">Puan</th><th></th></tr>';
+  c.res.forEach(function(r,i){h+='<tr><td>'+esc(r.no||'—')+'</td><td>'+(r.g||'A')+'</td><td class="r">'+r.d+'</td><td class="r">'+r.y+'</td><td class="r">'+r.b+'</td><td class="r"><b>'+r.s+'</b></td><td class="r"><button style="min-height:34px;padding:2px 10px" onclick="delRes('+i+')" aria-label="Sil">✕</button></td></tr>'});
+  h+='</table><div class="row" style="margin-top:10px"><button onclick="showCsv()">CSV olarak göster</button></div><div id="csv"></div></div>'}
+ else h+='<p class="m">Taranan kâğıtlar burada listelenir.</p>';
+ return h}
+function keyGrid(c){var h='';
+ var kk=keyOf(c,view.kg||'A');for(var i=0;i<c.n;i++){var k=kk[i];h+='<div class="q kq"><b>'+(i+1)+'</b>';
+  for(var j=0;j<4;j++)h+='<button class="'+(k===L[j]?'on':'')+'" onclick="setKey('+i+',\''+L[j]+'\')">'+L[j]+'</button>';
+  h+='<button class="'+(k==='X'?'on':'')+'" onclick="setKey('+i+',\'X\')">İptal</button></div>'}
+ return h}
+function setF(f,v){var c=course();
+ if(f==='name')c.name=v;else if(f==='n'){var n=Math.max(1,Math.min(25,parseInt(v)||1));c.n=n;$('#keygrid').innerHTML=keyGrid(c)}
+ else c[f]=Math.max(0,parseFloat(v)||0);save()}
+function setKg(g){view.kg=g;render()}
+function setKey(i,v){var c=course(),kk=keyOf(c,view.kg||'A');kk[i]=kk[i]===v?'':v;save();$('#keygrid').innerHTML=keyGrid(c);$('#pk').value=kk.map(function(x){return x||'-'}).join('')}
+function pasteKey(){var c=course(),t=$('#pk').value.toUpperCase().replace(/[^ABCDX\-]/g,'');
+ var arr=t.split('').slice(0,25).map(function(x){return x==='-'?'':x});
+ if((view.kg||'A')==='B')c.keyB=arr;else c.key=arr;
+ if(arr.length>c.n){c.n=arr.length}
+ save();render()}
+function delCourse(){if(confirm('Bu ders ve okunan kâğıtlar silinsin mi?')){S.courses=S.courses.filter(function(c){return c.id!==view.id});save();go({n:'list'})}}
+function delRes(i){var c=course();c.res.splice(i,1);save();render()}
+function showCsv(){var c=course(),l=['Ogrenci no;Grup;Dogru;Yanlis;Bos;Puan'];
+ c.res.forEach(function(r){l.push([r.no,r.g||'A',r.d,r.y,r.b,String(r.s).replace('.',',')].join(';'))});
+ var t=l.join('\n');$('#csv').innerHTML='<textarea id="ta" readonly>'+esc(t)+'</textarea><div class="row"><button class="p" onclick="copyCsv()">Kopyala</button></div><p class="m">Kopyalayıp Excel veya Notlar uygulamasına yapıştırabilirsin.</p>';
+ window._csv=t}
+function copyCsv(){var ta=$('#ta');ta.select();try{navigator.clipboard.writeText(window._csv)}catch(e){try{document.execCommand('copy')}catch(e2){}}}
+
+/* ---------- tarama ---------- */
+var T=[[38.5,42.5],[350,42.5],[38,474],[350,474]];
+var NAMES=['sol üst','sağ üst','sol alt','sağ alt'];
+function vScan(a){
+ var c=course();
+ var h='<div class="row sp"><button onclick="stopCam();bt=null;Q=[];go({n:\'course\',id:\''+c.id+'\'})">‹ '+esc(c.name)+'</button></div>';
+ if(!sc){
+  h+=(bt&&bt.total&&!Q.length?'<div class="card"><b>Toplu okuma bitti</b><div class="m">'+bt.total+' kâğıttan '+bt.auto+' tanesi otomatik kaydedildi, '+bt.rev+' tanesi kontrole geldi.</div></div>':'')+'<h1>Kâğıdı tara</h1><ol class="m" style="padding-left:18px"><li>Kâğıdı düz, sade bir zemine koy.</li><li>Formun dört köşesindeki siyah kareler ve tüm balonlar kadrajda olsun.</li><li>Çek düğmesine bas, telefonun kamerası açılır; fotoğrafı çekince köşeler otomatik bulunur ve kâğıt okunur. Bulunamazsa köşelere kendin dokunursun.</li></ol>';
+  h+='<div id="liveBox"><div style="position:relative"><video id="vid" playsinline muted autoplay style="width:100%;height:auto;display:block;border-radius:10px;background:#000"></video><canvas id="lov" style="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none"></canvas></div><div class="card" id="live"><b>Kamera başlatılıyor…</b></div><button id="frz" style="display:none;width:100%" onclick="freezeLive()">Dondur ve elle düzelt</button></div>';
+  h+='<button class="big" style="margin-top:10px" onclick="openCam()">Yedek: telefonun kamerasıyla çek</button>';
+  h+='<label class="btn big" style="margin:10px 0">Toplu oku: birçok fotoğraf seç<input type="file" accept="image/*" multiple style="display:none" onchange="startBatch(this.files)"></label><p class="m">Önce telefonun kamerasıyla tüm kâğıtları art arda çek, sonra buradan hepsini birlikte seç. Emin olduğu kâğıtları kendisi kaydeder, şüpheli olanları sana sorar.</p>';
+  
+  
+  h+='<label class="btn big" style="margin-top:8px">Galeriden tek fotoğraf seç<input type="file" accept="image/*" style="display:none" onchange="single(this.files[0])"></label>';
+  a.innerHTML=h;liveStart();return}
+ if(!sc.res){
+  h+='<h1>Köşeleri kontrol et</h1><p class="m" id="hint"></p><canvas id="cv"></canvas>';
+  h+='<div class="row" style="margin-top:10px"><button onclick="undoPt()">Geri al</button><button onclick="sc.pts=[];sc.auto=false;sc.fail=false;drawCorners()">Elle işaretle</button><button onclick="skipSheet()">Başka fotoğraf</button><button class="p" id="rd" style="flex:1" onclick="readSheet()" disabled>Oku</button></div>';
+  a.innerHTML=h;drawCorners();
+  $('#cv').addEventListener('click',tapCorner);return}
+ a.innerHTML=h+resultHtml(c);drawOverlay();
+}
+var cam=null;
+function startCam(){
+ var v=$('#vid');if(!v)return;
+ if(cam){v.srcObject=cam;try{v.play()}catch(e){}return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camErr('Kamera bu tarayıcıda açılamadı.');return}
+ navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false}).then(function(s){cam=s;var v2=$('#vid');if(v2){v2.srcObject=s;try{v2.play()}catch(e){}}else{stopCam()}}).catch(function(){camErr('Kamera izni verilmedi veya açılamadı.')})}
+function stopCam(){if(cam){cam.getTracks().forEach(function(t){t.stop()});cam=null}}
+function camErr(m){var e=$('#camerr');if(e)e.textContent=m+' Aşağıdaki düğmeyle fotoğraf seçebilirsin.';var b=$('#shot');if(b)b.style.display='none';var v=$('#vid');if(v)v.style.display='none'}
+function snapPhoto(){var v=$('#vid');if(!v||!v.videoWidth)return;
+ var c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+ c.toBlob(function(b){if(b)single(b)},'image/jpeg',.92)}
+var live={id:0,sig:'',same:0,armed:true,lost:0,saved:0,savedSig:'',cv:null,last:null};
+function liveStart(){var id=++live.id;live.sig='';live.same=0;live.lost=0;live.armed=true;
+ var ok=function(s){cam=s;var v=$('#vid');if(!v)return;v.srcObject=s;try{v.play()}catch(e){}setTimeout(function(){liveTick(id)},600)};
+ if(cam){ok(cam);return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){liveErr('Kamera bu tarayıcıda açılamadı.');return}
+ navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false}).then(ok).catch(function(){liveErr('Kamera izni verilmedi veya açılamadı. Sayfa https adresinde açık olmalı ve kamera iznini vermelisin.')})}
+function liveErr(m){var l=$('#liveBox');if(l)l.innerHTML='<div class="card" style="color:var(--bad)">'+m+'</div>'}
+function whyNot(c,r){
+ if(r.nf||r.no.length!==10||r.no.indexOf('?')>=0)return 'Öğrenci numarası okunamadı';
+ if(!r.grp)return 'A/B grubu kutusu okunamadı';
+ if(r.flags.slice(0,c.n).some(Boolean))return 'Bazı işaretler belirsiz';
+ if(keyOf(c,r.grp).slice(0,c.n).filter(Boolean).length!==c.n)return r.grp+' grubunun cevap anahtarı eksik';
+ return ''}
+function liveSave(c,r){var s=calc(c,r.ans,r.grp),rec={g:r.grp,no:r.no,ans:r.ans.slice(0,c.n),d:s.d,y:s.y,b:s.b,s:s.s,t:Date.now()};
+ var ix=c.res.findIndex(function(x){return x.no===r.no});if(ix>=0)c.res[ix]=rec;else c.res.push(rec);
+ save();live.saved++;try{navigator.vibrate(120)}catch(e){}}
+function liveTick(id){
+ if(id!==live.id)return;var v=$('#vid');if(!v||sc||view.n!=='scan')return;
+ var c=course();
+ if(c&&v.videoWidth){
+  var W=Math.min(1280,v.videoWidth),H=Math.round(v.videoHeight*W/v.videoWidth),cv=live.cv||(live.cv=document.createElement('canvas'));
+  cv.width=W;cv.height=H;var x=cv.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,W,H);
+  var d=x.getImageData(0,0,W,H).data,g=new Uint8Array(W*H);
+  for(var i=0;i<g.length;i++)g[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11;
+  var t={c:cv,g:g,w:W,h:H,pts:[],res:null,dx:0,dy:0,auto:true,fail:false},old=sc,pts=null;
+  sc=t;try{var f=autoCorners();if(f){t.pts=f;pts=f;runDetect()}}catch(e){}sc=old;
+  liveShow(c,t,pts)}
+ setTimeout(function(){liveTick(id)},400)}
+function liveShow(c,t,pts){
+ var o=$('#lov'),L=$('#live'),fz=$('#frz');if(!o||!L)return;
+ o.width=t.w;o.height=t.h;var x=o.getContext('2d');
+ if(!pts||!t.res){live.lost++;live.sig='';live.same=0;if(live.lost>=3)live.armed=true;if(fz)fz.style.display='none';
+  L.innerHTML='<b>Kâğıt aranıyor</b><p class="m">Dört köşedeki siyah kareler ve tüm balonlar görünsün, kâğıt düz dursun.</p><p class="m">Bu oturumda kaydedilen: '+live.saved+'</p>';return}
+ live.lost=0;live.last=t;if(fz)fz.style.display='';
+ x.strokeStyle='#00c853';x.lineWidth=Math.max(3,t.w*.004);x.beginPath();
+ [0,1,3,2].forEach(function(i,j){if(j)x.lineTo(pts[i][0],pts[i][1]);else x.moveTo(pts[i][0],pts[i][1])});x.closePath();x.stroke();
+ t.res.marks.forEach(function(m){if(m[2]){x.beginPath();x.arc(m[0],m[1],t.w*.0075,0,7);x.stroke()}});
+ var r=t.res,G=r.grp||'A',s=calc(c,r.ans,G),why=whyNot(c,r),sig=r.ans.slice(0,c.n).join('')+'|'+r.no+'|'+r.grp,msg='';
+ if(why){live.sig='';live.same=0;msg='<span style="color:var(--warn)">'+why+'</span>'}
+ else{
+  if(sig===live.sig)live.same++;else{live.sig=sig;live.same=1}
+  if(!live.armed&&sig!==live.savedSig)live.armed=true;
+  if(live.same>=3&&live.armed){liveSave(c,r);live.armed=false;live.savedSig=sig;msg='<span style="color:var(--ok)">✓ Kaydedildi</span>'}
+  else msg=live.armed?'Sabit tut…':'<span style="color:var(--ok)">✓ Kaydedildi — sıradaki kâğıdı getir</span>'}
+ L.innerHTML='<div class="m">'+G+' grubu · No: '+esc(r.no)+'</div><div class="score">'+s.s+' <span style="font-size:1rem;font-weight:500;color:var(--mute)">/ '+(c.n*c.pts)+'</span></div><div style="margin-top:8px"><span class="pill ok">'+s.d+' doğru</span><span class="pill bad">'+s.y+' yanlış</span><span class="pill mu">'+s.b+' boş</span></div><p style="margin:8px 0 0;font-weight:600">'+msg+'</p><p class="m">Bu oturumda kaydedilen: '+live.saved+'</p>'}
+function freezeLive(){var t=live.last;if(!t)return;
+ var cv=document.createElement('canvas');cv.width=t.w;cv.height=t.h;cv.getContext('2d').drawImage(live.cv,0,0);
+ live.id++;sc={c:cv,g:t.g,w:t.w,h:t.h,pts:t.pts,res:t.res,dx:0,dy:0,auto:true,fail:false};render()}
+var bt=null,Q=[];
+function openCam(){bt=null;Q=[];var i=document.createElement('input');i.type='file';i.accept='image/*';i.setAttribute('capture','environment');i.style.display='none';document.body.appendChild(i);i.onchange=function(){var f=i.files&&i.files[0];document.body.removeChild(i);if(f)loadFile(f)};i.click()}
+function single(f){bt=null;Q=[];loadFile(f)}
+function startBatch(fl){if(!fl||!fl.length)return;Q=Array.prototype.slice.call(fl);bt={total:Q.length,i:0,auto:0,rev:0};nextBatch()}
+function nextBatch(){if(Q.length){bt.i++;$('#app').innerHTML='<div class="card"><b>Okunuyor…</b><div class="m">'+bt.i+' / '+bt.total+' · otomatik kaydedilen: '+bt.auto+' · kontrole gelen: '+bt.rev+'</div></div>';loadFile(Q.shift())}else{sc=null;render()}}
+function skipSheet(){sc=null;if(bt&&Q.length)nextBatch();else{render();if(!bt&&!cam)openCam()}}
+function batchStep(){var c=course();if(!c)return false;var r=sc.res;
+ if(r&&!r.nf&&r.no.length===10&&r.no.indexOf('?')<0&&r.grp&&!r.flags.slice(0,c.n).some(Boolean)&&keyOf(c,r.grp).slice(0,c.n).filter(Boolean).length===c.n){
+  var s=calc(c,r.ans,r.grp),rec={g:r.grp,no:r.no,ans:r.ans.slice(0,c.n),d:s.d,y:s.y,b:s.b,s:s.s,t:Date.now()};
+  var ix=c.res.findIndex(function(x){return x.no===r.no});if(ix>=0)c.res[ix]=rec;else c.res.push(rec);
+  save();bt.auto++;sc=null;nextBatch();return true}
+ bt.rev++;return false}
+function loadFile(f){if(!f)return;var img=new Image();
+ img.onload=function(){var m=1800,s=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');
+  c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+  var x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+  var d=x.getImageData(0,0,c.width,c.height).data,g=new Uint8Array(c.width*c.height);
+  for(var i=0;i<g.length;i++)g[i]=d[4*i]*.3+d[4*i+1]*.59+d[4*i+2]*.11;
+  sc={c:c,g:g,w:c.width,h:c.height,pts:[],res:null,dx:0,dy:0,auto:false,fail:false};
+  try{var f=autoCorners();if(f){sc.pts=f;sc.auto=true;runDetect()}else sc.fail=true}catch(e){sc.fail=true;sc.res=null}
+  if(bt&&batchStep())return;
+  render()};
+ img.onerror=function(){if(bt)nextBatch()};img.src=URL.createObjectURL(f)}
+function drawCorners(){
+ var cv=$('#cv');cv.width=sc.w;cv.height=sc.h;var x=cv.getContext('2d');x.drawImage(sc.c,0,0);
+ var r=Math.max(10,sc.w*.014);x.lineWidth=Math.max(2,sc.w*.004);
+ sc.pts.forEach(function(p,i){x.strokeStyle='#ff2d55';x.beginPath();x.arc(p[0],p[1],r,0,7);x.stroke();
+  x.fillStyle='#ff2d55';x.font='bold '+Math.round(r*1.6)+'px sans-serif';x.fillText(i+1,p[0]+r*1.2,p[1]-r*.6)});
+ var n=sc.pts.length;
+ $('#hint').textContent=n<4?(sc.fail&&n===0?'Köşeler otomatik bulunamadı, elle işaretle. ':'')+(n+1)+'/4: formun '+NAMES[n]+' köşesindeki siyah kareye dokun (en dıştaki kareler).':(sc.auto?'Köşeler otomatik bulundu. Kırmızı halkalar dört dış kareyi tam sarıyorsa Oku\'ya bas, sarmıyorsa Elle işaretle\'ye dokun.':'4 köşe tamam. Noktalar karelerin üstündeyse Oku\'ya bas.');
+ $('#rd').disabled=n<4}
+function tapCorner(e){
+ if(sc.pts.length>=4)return;
+ var cv=$('#cv'),r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*sc.w/r.width,y=(e.clientY-r.top)*sc.h/r.height;
+ sc.pts.push(snap(x,y));drawCorners()}
+function undoPt(){sc.pts.pop();drawCorners()}
+function snap(x,y){
+ var R=Math.round(sc.w*.03),sx=0,sy=0,n=0,sum=0,cnt=0,x0=Math.max(0,Math.round(x)-R),x1=Math.min(sc.w-1,Math.round(x)+R),y0=Math.max(0,Math.round(y)-R),y1=Math.min(sc.h-1,Math.round(y)+R);
+ for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++){sum+=sc.g[j*sc.w+i];cnt++}
+ var th=sum/cnt*.45;
+ for(j=y0;j<=y1;j++)for(i=x0;i<=x1;i++)if(sc.g[j*sc.w+i]<th){sx+=i;sy+=j;n++}
+ return n>8?[sx/n,sy/n]:[x,y]}
+
+/* otomatik köşe bulma: koyu kare bölgeleri bul, 4 dış köşeyi ve 2 orta kareyi doğrulayarak seç */
+function autoCorners(){
+ var w=sc.w,h=sc.h,g=sc.g,x,y,i,W=w+1,I=new Float64Array(W*(h+1));
+ for(y=0;y<h;y++){var rs=0;for(x=0;x<w;x++){rs+=g[y*w+x];I[(y+1)*W+x+1]=I[y*W+x+1]+rs}}
+ var r=Math.round(w*.03),bin=new Uint8Array(w*h);
+ for(y=0;y<h;y++){var y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+  for(x=0;x<w;x++){var x0=Math.max(0,x-r),x1=Math.min(w,x+r+1);
+   var lm=(I[y1*W+x1]-I[y0*W+x1]-I[y1*W+x0]+I[y0*W+x0])/((x1-x0)*(y1-y0));
+   if(g[y*w+x]<lm*.6)bin[y*w+x]=1}}
+ var vis=new Uint8Array(w*h),st=new Int32Array(w*h),pool=[];
+ for(i=0;i<w*h;i++){if(!bin[i]||vis[i])continue;
+  var sp=0,ar=0,sx=0,sy=0,mnx=w,mxx=0,mny=h,mxy=0;st[sp++]=i;vis[i]=1;
+  while(sp){var p=st[--sp],px=p%w,py=(p-px)/w;ar++;sx+=px;sy+=py;
+   if(px<mnx)mnx=px;if(px>mxx)mxx=px;if(py<mny)mny=py;if(py>mxy)mxy=py;
+   if(px>0&&bin[p-1]&&!vis[p-1]){vis[p-1]=1;st[sp++]=p-1}
+   if(px<w-1&&bin[p+1]&&!vis[p+1]){vis[p+1]=1;st[sp++]=p+1}
+   if(py>0&&bin[p-w]&&!vis[p-w]){vis[p-w]=1;st[sp++]=p-w}
+   if(py<h-1&&bin[p+w]&&!vis[p+w]){vis[p+w]=1;st[sp++]=p+w}}
+  var bw=mxx-mnx+1,bh=mxy-mny+1;
+  if(bw<w*.008||bw>w*.05||bh<w*.008||bh>w*.05)continue;
+  var asp=bw/bh,fill=ar/(bw*bh);
+  if(asp<.7||asp>1.43||fill<.85)continue;
+  pool.push({x:sx/ar,y:sy/ar,s:(bw+bh)/2,f:fill})}
+ if(pool.length<4)return null;
+ pool.sort(function(a,b){return b.f-a.f});pool=pool.slice(0,40);
+ var best=null,bs=-1e9,sim=function(a,b){var q=a.s/b.s;return q>.65&&q<1.55};
+ pool.forEach(function(a){pool.forEach(function(b){
+  if(b===a||b.x-a.x<w*.25||Math.abs(b.y-a.y)>h*.12||!sim(a,b))return;
+  pool.forEach(function(c){
+   if(c===a||c===b||c.y-a.y<h*.25||Math.abs(c.x-a.x)>w*.12||!sim(a,c))return;
+   pool.forEach(function(d){
+    if(d===a||d===b||d===c||d.x-c.x<w*.25||d.y-b.y<h*.25||Math.abs(d.y-c.y)>h*.12||Math.abs(d.x-b.x)>w*.12||!sim(a,d))return;
+    var H=homog([[a.x,a.y],[b.x,b.y],[c.x,c.y],[d.x,d.y]]),m=0,dev=0;
+    [[38,257.5],[350,257.5]].forEach(function(t){var p=H(t[0],t[1]),bd=1e9;
+     pool.forEach(function(e){if(e===a||e===b||e===c||e===d)return;var dd=Math.hypot(e.x-p[0],e.y-p[1]);if(dd<bd)bd=dd});
+     if(bd<w*.03){m++;dev+=bd}});
+    var s2=m*1000-dev+(b.x-a.x)*(c.y-a.y)/(w*h)*100;
+    if(m>0&&s2>bs){bs=s2;best=[a,b,c,d]}})})})});
+ return best?best.map(function(e){return[e.x,e.y]}):null}
+
+/* homografi: şablon (u,v) -> görüntü (x,y) */
+function homog(P){P=P||sc.pts;
+ var A=[],i;
+ for(i=0;i<4;i++){var u=T[i][0],v=T[i][1],x=P[i][0],y=P[i][1];
+  A.push([u,v,1,0,0,0,-x*u,-x*v,x]);A.push([0,0,0,u,v,1,-y*u,-y*v,y])}
+ for(var c=0;c<8;c++){var p=c;for(i=c+1;i<8;i++)if(Math.abs(A[i][c])>Math.abs(A[p][c]))p=i;
+  var t=A[c];A[c]=A[p];A[p]=t;
+  for(i=0;i<8;i++)if(i!==c){var f=A[i][c]/A[c][c];for(var k=c;k<9;k++)A[i][k]-=f*A[c][k]}}
+ var h=A.map(function(r,i){return r[8]/r[i]});
+ return function(u,v){var w=h[6]*u+h[7]*v+1;return[(h[0]*u+h[1]*v+h[2])/w,(h[3]*u+h[4]*v+h[5])/w]}}
+
+/* balon yerleşimi (şablon koordinatları) */
+function layout(){
+ var q=[],i;
+ for(i=0;i<25;i++){var x0,y;
+  if(i<7){x0=81.7;y=86.4+20.6*i}else if(i<15){x0=81.7;y=262+20.45*(i-7)}
+  else if(i<22){x0=161;y=86.4+20.6*(i-15)}else{x0=240.6;y=86.4+20.6*(i-22)}
+  q.push([0,1,2,3].map(function(j){return[x0+15.3*j,y]}))}
+ var no=[];
+ for(var c=0;c<10;c++){no.push([]);for(var r=0;r<10;r++)no[c].push([186+15.3*c,293+18.4*r])}
+ return{q:q,no:no}}
+function pick(v){
+ var s=v.slice().sort(function(a,b){return a-b}),med=(s[1]+s[2])/2,d=med-s[0];
+ if(d<16)return{i:-1,flag:false};
+ var th=Math.max(16,d*.55),m=[];
+ v.forEach(function(x,i){if(med-x>th)m.push(i)});
+ if(m.length!==1)return{i:-1,flag:true};
+ return{i:m[0],flag:d<32}}
+function runDetect(){
+ var H=homog(),lay=layout(),dx=sc.dx,dy=sc.dy,marks=[],ans=[],flags=[];
+ var off=[[0,0],[2,0],[-2,0],[0,2],[0,-2],[1.4,1.4],[-1.4,1.4],[1.4,-1.4],[-1.4,-1.4]];
+ function samp(u,v){var s=0,n=0;
+  off.forEach(function(o){var p=H(u+dx+o[0],v+dy+o[1]),X=Math.round(p[0]),Y=Math.round(p[1]);
+   if(X>=0&&Y>=0&&X<sc.w&&Y<sc.h){s+=sc.g[Y*sc.w+X];n++}});
+  return n?s/n:255}
+ lay.q.forEach(function(row,qi){
+  var v=row.map(function(b){return samp(b[0],b[1])}),p=pick(v);
+  ans[qi]=p.i>=0?L[p.i]:'';flags[qi]=p.flag;
+  row.forEach(function(b,j){var pt=H(b[0]+dx,b[1]+dy);marks.push([pt[0],pt[1],j===p.i])})});
+ var no='',nf=false;
+ lay.no.forEach(function(col){
+  var v=col.map(function(b){return samp(b[0],b[1])});
+  var s=v.slice().sort(function(a,b){return a-b}),med=(s[4]+s[5])/2,d=med-s[0],mi=-1,c=0;
+  v.forEach(function(x,i){if(med-x>Math.max(16,d*.55)&&d>=16){c++;mi=i}});
+  if(c===1)no+=mi;else{no+='?';nf=true}
+  col.forEach(function(b,j){var pt=H(b[0]+dx,b[1]+dy);marks.push([pt[0],pt[1],c===1&&j===mi])})});
+ var gv=[samp(143.3,457.5),samp(159,457.5)],grp=Math.abs(gv[0]-gv[1])>=40?(gv[0]<gv[1]?'A':'B'):'';
+ [143.3,159].forEach(function(u,j){var pt=H(u+dx,457.5+dy);marks.push([pt[0],pt[1],grp===('AB')[j]])});
+ sc.res={ans:ans,flags:flags,no:no,nf:nf,marks:marks,grp:grp}}
+function readSheet(){runDetect();render()}
+function rerun(){sc.dx=parseFloat($('#sx').value);sc.dy=parseFloat($('#sy').value);runDetect();refreshResult()}
+
+function resultHtml(c){
+ var r=sc.res,h='<h1>Sonuç</h1>'+(bt?'<p class="m" style="color:var(--warn)">Toplu okuma '+bt.i+'/'+bt.total+': bu kâğıt kontrol gerektiriyor.</p>':'')+'<div id="sum"></div>';
+ h+='<label for="no">Öğrenci numarası (okunamayan hane ? olur, düzeltebilirsin)</label><input type="text" id="no" inputmode="numeric" maxlength="10" value="'+r.no+'" oninput="sc.res.no=this.value">';
+ h+='<label>Kitapçık grubu</label><div class="row" id="grp"></div>';h+='<h2>Cevaplar</h2><p class="m">Yanlış okunan varsa şıkka dokunarak düzelt. Sarı satırlar okuyucunun emin olmadığı sorular.</p><div class="card" id="ans"></div>';
+ h+='<div class="row"><button class="p" style="flex:1" onclick="saveRes()">Kaydet ve sonraki kâğıt</button><button onclick="skipSheet()">Kaydetme</button></div>';
+ h+='<h2>Okuma kontrolü</h2><p class="m">Halkalar balonların üstüne oturuyorsa okuma doğrudur. Kayma varsa kaydırıcılarla düzelt.</p><canvas id="ov"></canvas><button style="margin-top:8px" onclick="sc.res=null;sc.pts=[];sc.auto=false;render()">Köşeler yanlış, elle işaretle</button>';
+ h+='<label for="sx">Yatay kaydırma</label><input type="range" id="sx" min="-8" max="8" step="0.5" value="'+sc.dx+'" onchange="rerun()">';
+ h+='<label for="sy">Dikey kaydırma</label><input type="range" id="sy" min="-8" max="8" step="0.5" value="'+sc.dy+'" onchange="rerun()">';
+ setTimeout(refreshResult,0);return h}
+function refreshResult(){
+ var c=course(),r=sc.res,s=calc(c,r.ans,r.grp||'A');
+ $('#sum').innerHTML='<div class="card"><div class="m">'+esc(c.name)+' · '+(r.grp||'A')+' grubu</div><div class="score">'+s.s+' <span style="font-size:1rem;font-weight:500;color:var(--mute)">/ '+(c.n*c.pts)+'</span></div><div style="margin-top:10px"><span class="pill ok">'+s.d+' doğru</span><span class="pill bad">'+s.y+' yanlış</span><span class="pill mu">'+s.b+' boş</span></div>'+(keyOf(c,r.grp||'A').slice(0,c.n).filter(Boolean).length<c.n?'<p class="m" style="color:var(--warn)">'+(r.grp||'A')+' grubunun cevap anahtarı eksik, puan yanlış çıkabilir.</p>':'')+'</div>';
+ var h='';
+ for(var i=0;i<c.n;i++){var a=r.ans[i],k=keyOf(c,r.grp||'A')[i];h+='<div class="q'+(r.flags[i]?' w':'')+'"><b>'+(i+1)+'</b>';
+  for(var j=0;j<4;j++){var on=a===L[j],cls=on?' on '+(k==='X'||a===k?'ok':(k?'no':'')):'';h+='<button class="'+cls+'" onclick="setAns('+i+',\''+L[j]+'\')">'+L[j]+'</button>'}
+  h+=(r.flags[i]?'<small>kontrol et</small>':(k&&k!=='X'&&a!==k&&a?'<small style="color:var(--mute)">doğru: '+k+'</small>':''))+'</div>'}
+ $('#ans').innerHTML=h;
+ var no=$('#no');if(no&&document.activeElement!==no)no.value=r.no;
+ $('#grp').innerHTML=['A','B'].map(function(x){return '<button class="'+((r.grp||'A')===x?'p':'')+'" style="flex:1" onclick="setGrp(\''+x+'\')">'+x+' grubu</button>'}).join('')+(r.grp?'':'<span class="m" style="color:var(--warn);width:100%">Grup okunamadı, A varsayıldı. Doğru grubu seç.</span>');
+ drawOverlay()}
+function setGrp(g){sc.res.grp=g;refreshResult()}
+function setAns(i,v){var r=sc.res;r.ans[i]=r.ans[i]===v?'':v;r.flags[i]=false;refreshResult()}
+function drawOverlay(){
+ var cv=$('#ov');if(!cv)return;cv.width=sc.w;cv.height=sc.h;var x=cv.getContext('2d');x.drawImage(sc.c,0,0);
+ var rad=sc.w*.0075;x.lineWidth=Math.max(1.5,sc.w*.0022);
+ sc.res.marks.forEach(function(m){x.strokeStyle=m[2]?'#00c853':'rgba(255,45,85,.85)';x.beginPath();x.arc(m[0],m[1],rad,0,7);x.stroke()})}
+function saveRes(){
+ var c=course(),r=sc.res,s=calc(c,r.ans,r.grp||'A'),no=$('#no').value.trim();
+ var rec={g:r.grp||'A',no:no,ans:r.ans.slice(0,c.n),d:s.d,y:s.y,b:s.b,s:s.s,t:Date.now()};
+ var ix=no&&no.indexOf('?')<0?c.res.findIndex(function(x){return x.no===no}):-1;
+ if(ix>=0)c.res[ix]=rec;else c.res.push(rec);
+ save();sc=null;if(bt&&Q.length)nextBatch();else{render();if(!bt&&!cam)openCam()}}
+render();
+</script>
+</body>
+</html>
